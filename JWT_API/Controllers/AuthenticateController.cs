@@ -19,8 +19,8 @@ namespace JWT_API.Controllers
         private readonly RoleManager<IdentityRole> roleManager;
         private readonly IConfiguration _configuration;
 
-        public AuthenticateController(UserManager<ApplicationUser> userManager, 
-            RoleManager<IdentityRole> roleManager, 
+        public AuthenticateController(UserManager<ApplicationUser> userManager,
+            RoleManager<IdentityRole> roleManager,
             IConfiguration configuration)
         {
             this.userManager = userManager;
@@ -29,6 +29,44 @@ namespace JWT_API.Controllers
         }
 
 
+        //[HttpPost]
+        //[Route("login")]
+        //public async Task<IActionResult> Login([FromBody] Login model)
+        //{
+        //    var user = await userManager.FindByNameAsync(model.Username!);
+        //    if (user != null && await userManager.CheckPasswordAsync(user, model.Password!))
+        //    {
+        //        var userRoles = await userManager.GetRolesAsync(user);
+
+        //        var authClaims = new List<Claim>
+        //        {
+        //            new Claim(ClaimTypes.Name, user.UserName!),
+        //            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+        //        };
+
+        //        foreach (var userRole in userRoles)
+        //        {
+        //            authClaims.Add(new Claim(ClaimTypes.Role, userRole));
+        //        }
+
+        //        var authSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JWT:Secret"]!));
+
+        //        var token = new JwtSecurityToken(
+        //            issuer: _configuration["JWT:ValidIssuer"],
+        //            audience: _configuration["JWT:ValidAudience"],
+        //            expires: DateTime.Now.AddHours(3),
+        //            claims: authClaims,
+        //            signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
+        //            );
+
+        //        return Ok(new
+        //        {
+        //            token = new JwtSecurityTokenHandler().WriteToken(token),
+        //            expiration = token.ValidTo
+        //        });
+        //    }
+        //    return Unauthorized();
+        //}
         [HttpPost]
         [Route("login")]
         public async Task<IActionResult> Login([FromBody] Login model)
@@ -36,36 +74,43 @@ namespace JWT_API.Controllers
             var user = await userManager.FindByNameAsync(model.Username!);
             if (user != null && await userManager.CheckPasswordAsync(user, model.Password!))
             {
-                var userRoles = await userManager.GetRolesAsync(user);
-
-                var authClaims = new List<Claim>
-                {
-                    new Claim(ClaimTypes.Name, user.UserName!),
-                    new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                };
-
-                foreach (var userRole in userRoles)
-                {
-                    authClaims.Add(new Claim(ClaimTypes.Role, userRole));
-                }
-
-                var authSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JWT:Secret"]!));
-
-                var token = new JwtSecurityToken(
-                    issuer: _configuration["JWT:ValidIssuer"],
-                    audience: _configuration["JWT:ValidAudience"],
-                    expires: DateTime.Now.AddHours(3),
-                    claims: authClaims,
-                    signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
-                    );
+                var token = GenerateJwtToken(user);
 
                 return Ok(new
                 {
-                    token = new JwtSecurityTokenHandler().WriteToken(token),
-                    expiration = token.ValidTo
+                    token,
+                    expiration = DateTime.Now.AddHours(3)
                 });
             }
+
             return Unauthorized();
+        }
+        private string GenerateJwtToken(ApplicationUser user)
+        {
+            var userRoles = userManager.GetRolesAsync(user).Result;
+
+            var authClaims = new List<Claim>
+            {
+                new Claim(ClaimTypes.Name, user.UserName!),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            };
+
+            foreach (var userRole in userRoles)
+            {
+                authClaims.Add(new Claim(ClaimTypes.Role, userRole));
+            }
+
+            var authSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JWT:Secret"]!));
+
+            var token = new JwtSecurityToken(
+                issuer: _configuration["JWT:ValidIssuer"],
+                audience: _configuration["JWT:ValidAudience"],
+                expires: DateTime.Now.AddHours(3),
+                claims: authClaims,
+                signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
         [HttpPost]
